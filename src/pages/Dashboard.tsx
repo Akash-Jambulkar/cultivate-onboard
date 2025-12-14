@@ -1,79 +1,250 @@
-import { useState, useEffect } from "react";
-import { Target, Monitor, Gift, Gamepad2, GraduationCap, TrendingUp, Bell, Calendar, Clock, CheckCircle, Play, FileText, Users } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Target, Monitor, Gift, Gamepad2, GraduationCap, TrendingUp, Bell, Calendar, Clock, CheckCircle, FileText, Users, MessageSquare, Heart, Megaphone, ArrowRight } from "lucide-react";
 import { StageCard } from "@/components/ui/StageCard";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 
-const initialTasks = [
-  { id: 1, title: "Complete IT Setup Tutorial", time: "Today", priority: "high" as const, route: "/pre-onboarding/it-tutorial" },
-  { id: 2, title: "Upload Bank Documents", time: "Tomorrow", priority: "medium" as const, route: "/pre-onboarding/documents" },
-  { id: 3, title: "Watch CEO Welcome Video", time: "This Week", priority: "low" as const, route: "/pre-onboarding/welcome-kit" },
-  { id: 4, title: "Complete HRMS Simulation", time: "This Week", priority: "medium" as const, route: "/onboarding/simulations" },
-];
-
-const initialActivity = [
-  { id: 1, title: "Completed Laptop Setup Checklist", time: "2 hours ago", type: "success" as const },
-  { id: 2, title: "Started HRMS Simulation", time: "Yesterday", type: "progress" as const },
-  { id: 3, title: "Viewed Team Structure", time: "2 days ago", type: "info" as const },
-];
+interface ModuleProgress {
+  name: string;
+  progress: number;
+  completedItems: number;
+  totalItems: number;
+  route: string;
+  icon: React.ReactNode;
+  category: "pre" | "onboarding" | "community";
+}
 
 const notifications = [
   { id: 1, title: "Welcome to TechCorp!", message: "Your manager Sarah Chen has sent you a welcome message.", time: "1 hour ago", read: false },
   { id: 2, title: "Document Approved", message: "Your Government ID has been verified successfully.", time: "3 hours ago", read: false },
   { id: 3, title: "New Training Available", message: "Advanced Excel course is now available in your learning path.", time: "Yesterday", read: true },
-  { id: 4, title: "Team Meeting Scheduled", message: "Weekly standup scheduled for Monday 10:00 AM.", time: "2 days ago", read: true },
 ];
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState(initialTasks);
-  const [activity, setActivity] = useState(initialActivity);
-  const [overallProgress, setOverallProgress] = useState(35);
-  const [preProgress, setPreProgress] = useState(60);
-  const [onboardingProgress, setOnboardingProgress] = useState(25);
-  const [postProgress, setPostProgress] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [notificationList, setNotificationList] = useState(notifications);
 
-  // Simulate real-time progress updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOverallProgress(prev => Math.min(prev + Math.random() * 0.5, 100));
-    }, 10000);
-    return () => clearInterval(interval);
+  // Calculate real progress from localStorage
+  const moduleProgress = useMemo((): ModuleProgress[] => {
+    // Documents progress
+    const docsData = localStorage.getItem("onboarding-documents");
+    const documents = docsData ? JSON.parse(docsData) : [];
+    const verifiedDocs = documents.filter((d: any) => d.status === "verified" || d.status === "pending").length;
+    const totalDocs = documents.length || 5;
+    
+    // Bank verification
+    const bankData = localStorage.getItem("bank-details");
+    const bank = bankData ? JSON.parse(bankData) : { verified: false };
+    const bankComplete = bank.verified ? 1 : 0;
+
+    // Roadmap progress
+    const roadmapData = localStorage.getItem("role-roadmap");
+    const roadmap = roadmapData ? JSON.parse(roadmapData) : [];
+    const completedPhases = roadmap.filter((r: any) => r.status === "completed").length;
+    const totalPhases = roadmap.length || 3;
+
+    // Skills progress
+    const skillsData = localStorage.getItem("skill-progress");
+    const skills = skillsData ? JSON.parse(skillsData) : [];
+    const avgSkillProgress = skills.length > 0 
+      ? skills.reduce((acc: number, s: any) => acc + (s.progress || 0), 0) / skills.length 
+      : 0;
+
+    // Feedback progress
+    const feedbackData = localStorage.getItem("feedback-hub");
+    const feedbacks = feedbackData ? JSON.parse(feedbackData) : [];
+    const feedbackComplete = feedbacks.length > 0 ? 100 : 0;
+
+    // Stories progress
+    const storiesData = localStorage.getItem("employee-stories");
+    const stories = storiesData ? JSON.parse(storiesData) : [];
+    const userStories = stories.filter((s: any) => !s.id.startsWith("sample-")).length;
+
+    // Events progress
+    const eventsData = localStorage.getItem("community-events");
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    const userId = localStorage.getItem("user-id") || "";
+    const attendingEvents = events.filter((e: any) => e.attendees?.includes(userId)).length;
+
+    return [
+      {
+        name: "Document Submission",
+        progress: Math.round(((verifiedDocs + bankComplete) / (totalDocs + 1)) * 100),
+        completedItems: verifiedDocs + bankComplete,
+        totalItems: totalDocs + 1,
+        route: "/pre-onboarding/documents",
+        icon: <FileText className="w-4 h-4" />,
+        category: "pre",
+      },
+      {
+        name: "Role & Expectations",
+        progress: Math.round(((completedPhases / totalPhases) * 50) + (avgSkillProgress / 2)),
+        completedItems: completedPhases,
+        totalItems: totalPhases,
+        route: "/pre-onboarding/role",
+        icon: <Target className="w-4 h-4" />,
+        category: "pre",
+      },
+      {
+        name: "Feedback Hub",
+        progress: feedbackComplete,
+        completedItems: feedbacks.length,
+        totalItems: 1,
+        route: "/onboarding/feedback",
+        icon: <MessageSquare className="w-4 h-4" />,
+        category: "onboarding",
+      },
+      {
+        name: "Employee Stories",
+        progress: userStories > 0 ? 100 : 0,
+        completedItems: userStories,
+        totalItems: 1,
+        route: "/community/stories",
+        icon: <Heart className="w-4 h-4" />,
+        category: "community",
+      },
+      {
+        name: "Events & Announcements",
+        progress: attendingEvents > 0 ? 100 : 0,
+        completedItems: attendingEvents,
+        totalItems: events.length || 1,
+        route: "/community/events",
+        icon: <Megaphone className="w-4 h-4" />,
+        category: "community",
+      },
+    ];
   }, []);
 
-  const handleStartTask = (task: typeof initialTasks[0]) => {
-    toast.success(`Starting: ${task.title}`);
-    
-    // Add to activity
-    const newActivity = {
-      id: Date.now(),
-      title: `Started ${task.title}`,
-      time: "Just now",
-      type: "progress" as const,
+  // Calculate category progress
+  const categoryProgress = useMemo(() => {
+    const preModules = moduleProgress.filter(m => m.category === "pre");
+    const onboardingModules = moduleProgress.filter(m => m.category === "onboarding");
+    const communityModules = moduleProgress.filter(m => m.category === "community");
+
+    const calcAvg = (modules: ModuleProgress[]) => 
+      modules.length > 0 ? Math.round(modules.reduce((acc, m) => acc + m.progress, 0) / modules.length) : 0;
+
+    return {
+      pre: calcAvg(preModules),
+      onboarding: calcAvg(onboardingModules),
+      community: calcAvg(communityModules),
     };
-    setActivity(prev => [newActivity, ...prev.slice(0, 4)]);
+  }, [moduleProgress]);
+
+  const overallProgress = useMemo(() => {
+    return Math.round(moduleProgress.reduce((acc, m) => acc + m.progress, 0) / moduleProgress.length);
+  }, [moduleProgress]);
+
+  const completedModules = moduleProgress.filter(m => m.progress >= 100).length;
+
+  const recentActivity = useMemo(() => {
+    const activities: { title: string; time: string; type: "success" | "progress" | "info" }[] = [];
     
-    // Navigate to the task
-    navigate(task.route);
-  };
+    const feedbackData = localStorage.getItem("feedback-hub");
+    if (feedbackData) {
+      const feedbacks = JSON.parse(feedbackData);
+      if (feedbacks.length > 0) {
+        activities.push({
+          title: `Submitted ${feedbacks.length} feedback${feedbacks.length > 1 ? "s" : ""}`,
+          time: "Recently",
+          type: "success",
+        });
+      }
+    }
 
-  const handleViewAllTasks = () => {
-    toast.info("Viewing all pending tasks", {
-      description: "You have 4 tasks to complete this week.",
-    });
-  };
+    const docsData = localStorage.getItem("onboarding-documents");
+    if (docsData) {
+      const docs = JSON.parse(docsData);
+      const uploaded = docs.filter((d: any) => d.status !== "required").length;
+      if (uploaded > 0) {
+        activities.push({
+          title: `Uploaded ${uploaded} document${uploaded > 1 ? "s" : ""}`,
+          time: "Recently",
+          type: "progress",
+        });
+      }
+    }
 
-  const handleViewAllActivity = () => {
-    toast.info("Activity History", {
-      description: "Showing your complete activity history.",
-    });
-  };
+    const storiesData = localStorage.getItem("employee-stories");
+    if (storiesData) {
+      const stories = JSON.parse(storiesData);
+      const userStories = stories.filter((s: any) => !s.id.startsWith("sample-")).length;
+      if (userStories > 0) {
+        activities.push({
+          title: `Shared ${userStories} stor${userStories > 1 ? "ies" : "y"}`,
+          time: "Recently",
+          type: "success",
+        });
+      }
+    }
+
+    if (activities.length === 0) {
+      activities.push({ title: "Started onboarding journey", time: "Today", type: "info" });
+    }
+
+    return activities.slice(0, 5);
+  }, []);
+
+  const upcomingTasks = useMemo(() => {
+    const tasks: { title: string; priority: "high" | "medium" | "low"; route: string }[] = [];
+    
+    const docsData = localStorage.getItem("onboarding-documents");
+    if (docsData) {
+      const docs = JSON.parse(docsData);
+      const required = docs.filter((d: any) => d.status === "required").length;
+      if (required > 0) {
+        tasks.push({
+          title: `Upload ${required} required document${required > 1 ? "s" : ""}`,
+          priority: "high",
+          route: "/pre-onboarding/documents",
+        });
+      }
+    }
+
+    const feedbackData = localStorage.getItem("feedback-hub");
+    if (!feedbackData || JSON.parse(feedbackData).length === 0) {
+      tasks.push({
+        title: "Submit your first feedback",
+        priority: "medium",
+        route: "/onboarding/feedback",
+      });
+    }
+
+    const storiesData = localStorage.getItem("employee-stories");
+    if (storiesData) {
+      const stories = JSON.parse(storiesData);
+      const userStories = stories.filter((s: any) => !s.id.startsWith("sample-")).length;
+      if (userStories === 0) {
+        tasks.push({
+          title: "Share your story with the community",
+          priority: "low",
+          route: "/community/stories",
+        });
+      }
+    }
+
+    const eventsData = localStorage.getItem("community-events");
+    if (eventsData) {
+      const events = JSON.parse(eventsData);
+      const userId = localStorage.getItem("user-id") || "";
+      const notAttending = events.filter((e: any) => !e.attendees?.includes(userId)).length;
+      if (notAttending > 0) {
+        tasks.push({
+          title: `RSVP to ${notAttending} upcoming event${notAttending > 1 ? "s" : ""}`,
+          priority: "low",
+          route: "/community/events",
+        });
+      }
+    }
+
+    return tasks.slice(0, 4);
+  }, []);
 
   const handleNotificationClick = () => {
     setShowNotifications(true);
@@ -92,14 +263,6 @@ export const Dashboard = () => {
       description: "Your meeting with HR has been scheduled for Monday 2:00 PM.",
     });
     setShowScheduleDialog(false);
-    
-    const newActivity = {
-      id: Date.now(),
-      title: "Scheduled meeting with HR",
-      time: "Just now",
-      type: "success" as const,
-    };
-    setActivity(prev => [newActivity, ...prev.slice(0, 4)]);
   };
 
   const unreadCount = notificationList.filter(n => !n.read).length;
@@ -111,10 +274,12 @@ export const Dashboard = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-1">
-              Welcome back, James! 👋
+              Welcome back! 👋
             </h1>
             <p className="text-muted-foreground">
-              Day 5 of your onboarding journey. You're making great progress!
+              {completedModules === moduleProgress.length 
+                ? "Congratulations! You've completed all onboarding modules!"
+                : `You've completed ${completedModules} of ${moduleProgress.length} modules. Keep going!`}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -137,32 +302,73 @@ export const Dashboard = () => {
       {/* Progress Overview */}
       <div className="card-interactive p-6 mb-8">
         <div className="flex flex-col lg:flex-row items-center gap-6">
-          <ProgressRing progress={Math.round(overallProgress)} size={120} strokeWidth={8}>
+          <ProgressRing progress={overallProgress} size={120} strokeWidth={8}>
             <div className="text-center">
-              <span className="text-2xl font-bold text-foreground">{Math.round(overallProgress)}%</span>
+              <span className="text-2xl font-bold text-foreground">{overallProgress}%</span>
               <p className="text-xs text-muted-foreground">Complete</p>
             </div>
           </ProgressRing>
           <div className="flex-1 text-center lg:text-left">
             <h2 className="text-xl font-semibold text-foreground mb-2">Your Onboarding Progress</h2>
             <p className="text-muted-foreground mb-4">
-              You've completed 7 out of 20 tasks. Keep up the great work!
+              {completedModules} of {moduleProgress.length} modules completed
             </p>
             <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-info-light rounded-full">
                 <div className="w-2 h-2 rounded-full bg-info" />
-                <span className="text-sm text-info font-medium">Pre-Onboarding: {preProgress}%</span>
+                <span className="text-sm text-info font-medium">Pre-Onboarding: {categoryProgress.pre}%</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-warning-light rounded-full">
                 <div className="w-2 h-2 rounded-full bg-warning" />
-                <span className="text-sm text-warning font-medium">Onboarding: {onboardingProgress}%</span>
+                <span className="text-sm text-warning font-medium">Onboarding: {categoryProgress.onboarding}%</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-success-light rounded-full">
                 <div className="w-2 h-2 rounded-full bg-success" />
-                <span className="text-sm text-success font-medium">Post-Onboarding: {postProgress}%</span>
+                <span className="text-sm text-success font-medium">Community: {categoryProgress.community}%</span>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Module Progress Grid */}
+      <div className="mb-8">
+        <h3 className="font-semibold text-foreground mb-4">Module Progress</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {moduleProgress.map((module, index) => (
+            <div
+              key={index}
+              onClick={() => navigate(module.route)}
+              className="card-interactive p-4 cursor-pointer hover:border-primary/50 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    module.progress >= 100 ? "bg-success/10 text-success" :
+                    module.progress > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {module.icon}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{module.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{module.category}</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {module.completedItems} of {module.totalItems} items
+                  </span>
+                  <span className={`font-medium ${module.progress >= 100 ? "text-success" : "text-foreground"}`}>
+                    {module.progress}%
+                  </span>
+                </div>
+                <Progress value={module.progress} className="h-2" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -172,28 +378,28 @@ export const Dashboard = () => {
           title="Pre-Onboarding"
           description="Set up your workspace and learn about your role"
           icon={<Target className="w-5 h-5" />}
-          progress={preProgress}
+          progress={categoryProgress.pre}
           stage="pre"
           to="/pre-onboarding/role"
-          tasks={{ completed: 3, total: 5 }}
+          tasks={{ completed: moduleProgress.filter(m => m.category === "pre" && m.progress >= 100).length, total: moduleProgress.filter(m => m.category === "pre").length }}
         />
         <StageCard
           title="Onboarding"
           description="Complete simulations and connect with your team"
           icon={<Gamepad2 className="w-5 h-5" />}
-          progress={onboardingProgress}
+          progress={categoryProgress.onboarding}
           stage="onboarding"
           to="/onboarding/simulations"
-          tasks={{ completed: 2, total: 8 }}
+          tasks={{ completed: moduleProgress.filter(m => m.category === "onboarding" && m.progress >= 100).length, total: moduleProgress.filter(m => m.category === "onboarding").length }}
         />
         <StageCard
-          title="Post-Onboarding"
-          description="Continue learning and track your performance"
-          icon={<GraduationCap className="w-5 h-5" />}
-          progress={postProgress}
+          title="Community"
+          description="Connect with colleagues and join events"
+          icon={<Users className="w-5 h-5" />}
+          progress={categoryProgress.community}
           stage="post"
-          to="/post-onboarding/learning"
-          tasks={{ completed: 0, total: 7 }}
+          to="/community/stories"
+          tasks={{ completed: moduleProgress.filter(m => m.category === "community" && m.progress >= 100).length, total: moduleProgress.filter(m => m.category === "community").length }}
         />
       </div>
 
@@ -202,47 +408,47 @@ export const Dashboard = () => {
         {/* Upcoming Tasks */}
         <div className="card-interactive p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Upcoming Tasks</h3>
-            <Button variant="ghost" size="sm" onClick={handleViewAllTasks}>View All</Button>
+            <h3 className="font-semibold text-foreground">Pending Tasks</h3>
+            <span className="text-xs text-muted-foreground">{upcomingTasks.length} remaining</span>
           </div>
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-4 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-              >
-                <div className={`w-2 h-2 rounded-full ${
-                  task.priority === "high" ? "bg-destructive" :
-                  task.priority === "medium" ? "bg-warning" : "bg-success"
-                }`} />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{task.title}</p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    {task.time}
+          {upcomingTasks.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingTasks.map((task, index) => (
+                <div
+                  key={index}
+                  onClick={() => navigate(task.route)}
+                  className="flex items-center gap-4 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  <div className={`w-2 h-2 rounded-full ${
+                    task.priority === "high" ? "bg-destructive" :
+                    task.priority === "medium" ? "bg-warning" : "bg-success"
+                  }`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{task.title}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{task.priority} priority</p>
                   </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <Button variant="outline" size="sm" onClick={() => handleStartTask(task)}>
-                  Start
-                </Button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <CheckCircle className="w-12 h-12 mx-auto mb-3 text-success" />
+              <p className="font-medium text-foreground">All tasks completed!</p>
+              <p className="text-sm text-muted-foreground">Great job on your onboarding journey</p>
+            </div>
+          )}
         </div>
 
         {/* Recent Activity */}
         <div className="card-interactive p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-foreground">Recent Activity</h3>
-            <Button variant="ghost" size="sm" onClick={handleViewAllActivity}>View All</Button>
           </div>
           <div className="space-y-3">
-            {activity.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-4 p-3"
-              >
-                <div className={`icon-circle ${
+            {recentActivity.map((item, index) => (
+              <div key={index} className="flex items-center gap-4 p-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   item.type === "success" ? "bg-success/10 text-success" :
                   item.type === "progress" ? "bg-warning/10 text-warning" : "bg-info/10 text-info"
                 }`}>
@@ -263,10 +469,10 @@ export const Dashboard = () => {
         <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: <Monitor className="w-5 h-5" />, label: "IT Setup", to: "/pre-onboarding/it-tutorial" },
-            { icon: <Gift className="w-5 h-5" />, label: "Welcome Kit", to: "/pre-onboarding/welcome-kit" },
-            { icon: <Gamepad2 className="w-5 h-5" />, label: "Simulations", to: "/onboarding/simulations" },
-            { icon: <TrendingUp className="w-5 h-5" />, label: "Performance", to: "/post-onboarding/performance" },
+            { icon: <FileText className="w-5 h-5" />, label: "Documents", to: "/pre-onboarding/documents" },
+            { icon: <Target className="w-5 h-5" />, label: "Role & Goals", to: "/pre-onboarding/role" },
+            { icon: <MessageSquare className="w-5 h-5" />, label: "Feedback", to: "/onboarding/feedback" },
+            { icon: <Megaphone className="w-5 h-5" />, label: "Events", to: "/community/events" },
           ].map((item, index) => (
             <div
               key={index}
